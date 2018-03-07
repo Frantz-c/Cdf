@@ -457,7 +457,7 @@ char *Get_tolower_extension(const char *filename)
 
   lastpoint++;
   ret = calloc(strlen(filename + lastpoint) + 1, sizeof(char));
-  for (i = 0, filename += lastpoint; filename; filename++, i++)
+  for (i = 0, filename += lastpoint; *filename; filename++, i++)
   {
     ret[i] = (*filename >= 65 && *filename <= 90) ? (*filename) + 32: *filename;
   }
@@ -527,7 +527,7 @@ char *Correct_regex(const char *restrict s)
     if (bsd_count == 30 || ps_count == 30 || pp_count == 30) break;
 
     // décompte des crochets ouverts
-    if (s[i] == '[' && (i == 0 || (i == 1 && s[i-1] != '\\') || (i > 1 && s[i-1] != '\\' || s[i-2] == '\\')))
+    if (s[i] == '[' && (i == 0 || (i == 1 && s[i-1] != '\\') || (i > 1 && (s[i-1] != '\\' || s[i-2] == '\\'))))
       bracket++;
     else if (i > 0 && s[i] == ']' && (s[i-1] != '\\' || (i > 1 && s[i-2] == '\\')))
       bracket--;
