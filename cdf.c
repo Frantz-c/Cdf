@@ -346,13 +346,13 @@ void Help(const char *script)
   );
   puts
   (
-    "  \e[0;36m-d / --directory : \e[0;37mDirectory where search \e[0m(\e[1;34mstring\e[0m)\n"
-    "  \e[0;36m-f / --filter    : \e[0;37mFiles where search\e[0m(\e[1;34mregex(,regex)*\e[0m)"
+    "  \e[0;36m-d / --directory : \e[0;37mDirectory where to look \e[0m(\e[1;34mstring\e[0m)\n"
+    "  \e[0;36m-f / --filter    : \e[0;37mFiles where to look \e[0m(\e[1;34mregex(,regex)*\e[0m)"
   );
   puts
   (
     "  \e[0;36m-r / --recursive : \e[0;37mRecursive level \e[0m(\e[1;34minteger\e[0m)\n"
-    "  \e[0;36m-a / --all       : \e[0;37mSerach in all directory and all files \e[0m(\e[1;34mboolean\e[0m)\n"
+    "  \e[0;36m-a / --all       : \e[0;37mSearch in all directories and all files \e[0m(\e[1;34mboolean\e[0m)\n"
   );
 }
 
