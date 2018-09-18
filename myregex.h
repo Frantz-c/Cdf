@@ -10,8 +10,8 @@
 
 typedef struct myregex_t
 {
-  unsigned int start;
-  unsigned int end;
+  int start;
+  int end;
   struct myregex_t *next;
 }
 myregex_t;
