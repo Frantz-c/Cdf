@@ -181,7 +181,7 @@ int	Backup_confirmation(const char *name)
 		return (0);
 	}
 	Raw_mode(0);
-	puts("\e[0;31mBackup enregistré.\e[0m\n");
+	puts("\e[0;32mBackup enregistré.\e[0m\n");
 	return (1);
 }
 
@@ -474,7 +474,6 @@ char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, ch
 	strcpy(newline + match->start, replace);
 	if (buffer[match->end])
 		strcpy(newline + match->start + strlen(replace), buffer + match->end);
-	puts("OKOK");
 	free(replace);
 	return (newline);
 }
