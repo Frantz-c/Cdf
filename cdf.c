@@ -7,10 +7,19 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <termios.h> 
+#include <fcntl.h>
 #include "cliarg.h"
 #include "myregex.h"
 #include "cdf.h"
 #include "my_functions.h"
+
+#define ESCAPE	27
+
+#define free_pointer(ptr)	\
+	do {\
+	printf("FREE %p (var = " #ptr ") :: line %d\n", (void*)ptr, __LINE__);\
+	free(ptr);\
+	} while (0)
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +40,7 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-char Set_Arguments(arguments **main_arguments, int argc, char *argv[])
+int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 {
 	cliarg_t  *args;
 	arguments *argument  = malloc(sizeof(arguments));
@@ -42,8 +51,12 @@ char Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 		"r." , "recursive", /* recursive level */
 		"a"  , "all",       /* search in files beginning per '.' too */
 		"f:+", "filter",    /* files where to search */
+		"w:", "write",		/* replacement */
+		"s.", "start",		/* match start */
+		"e.", "end",		/* match end */
 		NULL
 	};
+	cliarg_t	*ptr;
 
 
 	if (Arguments_number_check(argc, *argv) != 0) return -1;
@@ -57,7 +70,7 @@ char Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 			Cliarg_print_error(stdout, error);
 			Cliarg_free_error(&error);
 			Help(argv[0]);
-			return -1;
+			return (-1);
 		}
 	}
 
@@ -67,23 +80,22 @@ char Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	if ((argument->dir = STRING(Cliarg_get_copy_value(args, 'd', NULL))) == NULL)
 		CLIARG_SET_STR(argument->dir, ".");
 
-	if ((argument->rec = INTEGER(Cliarg_get_copy_value(args, 'r', NULL))) == NULL)
-		CLIARG_SET_INT(argument->rec, 1);
-
-	if ((argument->all = INTEGER(Cliarg_get_copy_value(args, 'a', NULL))) == NULL)
-		CLIARG_SET_INT(argument->all, 0);
-
+	argument->wri = STRING(Cliarg_get_copy_value(args, 'w', NULL));
+	argument->rec = ((ptr = Cliarg_get_argument(args, 'r'))) ? INT_VALUE(ptr->value) : 1;
+	argument->all = ((ptr = Cliarg_get_argument(args, 'a'))) ? INT_VALUE(ptr->value) : 0;
+	argument->sta = ((ptr = Cliarg_get_argument(args, 's'))) ? INT_VALUE(ptr->value) : 0;
+	argument->end = ((ptr = Cliarg_get_argument(args, 'e'))) ? INT_VALUE(ptr->value) : 0;
 	argument->fil = STRARRAY(Cliarg_get_copy_value(args, 'f', NULL));
+	argument->exp = argv[1]; //correct_regex() -> \t bug ??
 
-	argument->exp = Correct_regex(argv[1]);
-
+	printf("s = %d, wri = %p\n", argument->sta, (void*)argument->wri);
 	/* 
 	 ** Print regex and filters 
 	 */
-	fmt_print("\e[0;35mRegex = \e[1;35m%s\e[0;35m\n", argument->exp);
+	printf("\e[0;35mRegex = \e[1;35m%s\e[0;35m\n", argument->exp);
 	if (argument->fil) {
 		for (int i = 0; argument->fil[i]; i++) 
-			fmt_print("fichier %d = \e[1;35m'%s'\e[0;35m\n", i, argument->fil[i]);
+			printf("fichier %d = \e[1;35m'%s'\e[0;35m\n", i, argument->fil[i]);
 	}
 
 
@@ -97,14 +109,14 @@ char Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	return 0;
 }
 
-char Arguments_number_check(int argc, char *scriptname)
+int Arguments_number_check(int argc, char *scriptname)
 {
 	if (argc < 2)
 	{
 		Help(scriptname);
 		return -1;
 	}
-	else if (argc > 6)
+	else if (argc > 7)
 	{
 		print("\e[0;31mTrop d'arguments.\e[0m\n\n");
 		Help(scriptname);
@@ -129,7 +141,53 @@ void User_confirmation(void)
 	print("\e[0;32mRecherche en cours...\e[0m\n\n");
 }
 
-void Search(int total[], arguments *arg, char *path, short rec)
+int	Replace_confirmation(const char *s, int start, int end, const char *replace, int line)
+{
+	int	c;
+
+	printf("\e[0;33m%d: \e[0;36mVoulez-vous vraiment remplacer "
+			"\e[0;33m'%s'\e[0;36m\n"
+			"                           par \e[0;33m'%.*s%s%s'\e[0;36m ? \e[0;35m(oui = entrée)\e[0m\n",
+			line, s, start, s, replace, s + end);
+	Raw_mode(1);
+
+	if ((c = getchar()) != '\r')
+	{
+		Raw_mode(0);
+		if (c == ESCAPE)
+			exit(1);
+		puts("\e[0;31mOccurrence non-remplacée.\e[0m\n");
+		return (0);
+	}
+	Raw_mode(0);
+	puts("\e[0;32mOccurrence remplacée.\e[0m\n");
+	return (1);
+}
+
+int	Backup_confirmation(const char *name)
+{
+	int c;
+
+	printf("\e[0;36mVoulez-vous créer un backup du fichier \e[0;33m\"%s\""
+			"\e[0;36m ? \e[0;35m(oui = entrée)\n\e[0;37mnom du backup: %s.bkup\n\e[0m",
+			name, name);
+	Raw_mode(1);
+
+	if ((c = getchar()) != '\r')
+	{
+		Raw_mode(0);
+		if (c == ESCAPE)
+			exit(1);
+		puts("\e[0;31mPas de backup enregistré.\e[0m\n");
+		return (0);
+	}
+	Raw_mode(0);
+	puts("\e[0;31mBackup enregistré.\e[0m\n");
+	return (1);
+}
+
+
+void Search(int total[], arguments *arg, char *path, int rec)
 {
 	DIR         *directory;
 	struct stat  stats;
@@ -149,9 +207,9 @@ void Search(int total[], arguments *arg, char *path, short rec)
 	while ((dirinfo = readdir(directory)) != NULL)
 	{
 		if (!my_strcmp(dirinfo->d_name, ".") || !my_strcmp(dirinfo->d_name, "..")) continue;
-		if (*dirinfo->d_name == '.' && *arg->all == 0) continue;
+		if (*dirinfo->d_name == '.' && arg->all == 0) continue;
 
-		if ((newpath = calloc(length_of(path) + length_of(dirinfo->d_name) + 2, sizeof(char))) == NULL) {
+		if ((newpath = calloc(strlen(path) + strlen(dirinfo->d_name) + 2, sizeof(char))) == NULL) {
 			fprintf(stderr, "Erreur d'allocation de mémoire ligne %d\n", __LINE__);
 			closedir(directory);
 			return;
@@ -167,7 +225,7 @@ void Search(int total[], arguments *arg, char *path, short rec)
 		 */
 		if (S_ISDIR(stats.st_mode))
 		{
-			if (rec + 1 == *arg->rec) {
+			if (rec + 1 == arg->rec) {
 				free(newpath);
 				continue;
 			}
@@ -176,7 +234,7 @@ void Search(int total[], arguments *arg, char *path, short rec)
 		else
 		{
 			if (Authorized_File(arg->fil, dirinfo->d_name) && Valid_File(newpath)) {
-				Search_On_File(newpath, arg, total);
+				Search_On_File(newpath, arg, total, stats.st_size);
 			}
 			free(newpath);
 		}
@@ -185,95 +243,241 @@ void Search(int total[], arguments *arg, char *path, short rec)
 	closedir(directory);
 }
 
-char Search_On_File(const char *filename, arguments *arg, int total[])
+int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned int fsize)
 {
-	char		buffer[BUFSIZE];
-	int			line = 1;
-	FILE		*file;
-	myregex_t	*match = NULL;
-	char		title = 0;
+	static char			*buffer = NULL;
+	static char			*copy = NULL;
+	unsigned int		i = 0;
+	unsigned int		j;
+	static unsigned int	buflen = 0;
+	int					line = 1;
+	int					fd;
+	myregex_t			*match = NULL;
+	char				title = 0;
+	char				*buf;
+	char				*lf;
+	char				*newline;
+	int					n_replace = 0;
 
-	if ((file = fopen(filename, "r")) == NULL) {
-		fmt_print("\e[0;31mImpossible d'ouvrir le fichier \"%s\" ligne %d.\e[0m\n", filename, __LINE__);
+	if ((fd = open(filename, O_RDONLY)) == -1) {
+		fprintf(stderr, "\e[0;31mImpossible d'ouvrir le fichier \"%s\" ligne %d.\e[0m\n", filename, __LINE__);
 		return -1;
 	}
+
+	if (buflen < fsize + 1)
+	{
+		free(buffer);
+		buffer = malloc(fsize + 1);
+		if (arg->wri)
+		{
+			free(copy);
+			copy = malloc(fsize + 1);
+		}
+	}
+	read(fd, buffer, fsize);
+	close(fd);
+	buffer[fsize] = 0;
+	lf = buffer - 1;
 
 	/*
 	 ** Get one line and search regex into
 	 */
-	while (fgets(buffer, BUFSIZE, file) != NULL)
+	do
 	{
-		if (length_of(buffer) == 1)
-			*buffer = '\0';
-		else if (buffer[(length_of(buffer) - 1)] == '\n')
-			buffer[(length_of(buffer) - 1)] = '\0';
+		buf = lf + 1;
+		if ((lf = strchr(buf, '\n')) != NULL)
+			*lf = '\0';
 
 		/*
 		 ** Print line with number of line and highlight the match
 		 ** If it's the first match, print file name
 		 */
-		if (preg_match_get_all(arg->exp, buffer, &match) == 0)
+		if (preg_match_get_all(arg->exp, buf, &match) == 0)
 		{
 			if (title == 0) 
 			{
 				title = 1;
-				fmt_print("\n\e[1m\e[7;34m» %s «\e[0m\n\n", filename);
+				printf("\n\e[1m\e[7;34m» %s «\e[0m\n\n", filename);
 				total[CDF_FILE]++;
 			}
 			total[CDF_MATCH]++;
 
-			Print_match_lines(buffer, match, line);
+			match->start += arg->sta;
+			match->end -= arg->end;
+			if (arg->wri)
+			{
+				if ((newline = Print_replacement_and_replace(buf, match, line, arg->wri)) == NULL)
+				{
+					free_myregex_t(match);
+					match = NULL;
+					goto copy_line_into_tmpfile;
+				}
+				n_replace++;
+				//copy newline into tmpfile
+				j = strlen(newline);
+				strncpy(copy + i, newline, j);
+				i += j;
+				copy[i++] = '\n';
+			}
+			else
+			{
+				Print_match_lines(buf, match, line);
+			}
+			
+
 			free_myregex_t(match);
 			match = NULL;
 		}
+		else if (arg->wri)
+		{
+			copy_line_into_tmpfile:
+			j = strlen(buf);
+			strncpy(copy + i, buf, j);
+			i += j;
+			copy[i++] = '\n';
+		}
 		line++;
+		buf = lf + 1;
 	}
+	while (lf);
 
-	fclose(file);
-	if (title) print("\e[0m\n"); // If results are printed, close the color
-	return 0;
+	if (title)
+		printf("\e[0m\n"); // If results are printed, close the color
+	if (arg->wri && n_replace)
+	{
+		if (i) i--;
+		if (Backup_confirmation(filename) == 1)
+		{
+			char	*bkupname = malloc(strlen(filename) + 6);
+			strcpy(bkupname + strlen(filename), ".bkup");
+			strncpy(bkupname, filename, strlen(filename));
+			rename(filename, bkupname);
+			free(bkupname);
+		}
+		fd = open(filename, O_WRONLY | O_CREAT | O_TRUNC, 0664);
+		if (fd == -1)
+		{
+			fprintf(stderr, "can't create %s\n", filename);
+			return (-1);
+		}
+		write(fd, copy, i);
+		close(fd);
+	}
+	return (0);
 }
 
-void Print_match_lines(char *buffer, myregex_t *match, int line)
+/*
+ * replacement syntax:
+	./cdf 'funcname\([^)]+\)' -w='newname\(%\)'
+	./cdf '
+
+*/
+
+
+static char	*get_replacement(char *s, int len, char *write)
+{
+	/* % joker */
+	char			*start;
+	char			*end;
+	char			*joker;
+	/* */
+	char			*tmp;
+	unsigned int	new_len = 0;
+	char			*replace;
+
+	printf("\e[1;34mWRITE = \"%s\"\e[0m\n", write);
+	joker = strchr(write, '%');
+	if (joker)
+	{
+		for (tmp = s; *tmp && *tmp != *(joker - 1); tmp++);
+		start = (!tmp) ? s : tmp;
+		for (tmp = s + len - 1; tmp != s && *tmp != *(joker + 1); tmp--);
+		end = (tmp == s) ? s + len - 1 : tmp;
+		if (end < start)
+			end = s + len - 1;
+		new_len = end - start;
+		new_len += (joker - 1) - write;
+		new_len += strlen(joker + 1);
+	}
+	else
+	{
+		new_len = strlen(write);
+	}
+
+	replace = malloc(new_len + 1);
+	if (!joker) {
+		strncpy(replace, write, new_len);
+		return (replace);
+	}
+	strncpy(replace, write, (joker - 1) - write);
+	strncpy(replace + (unsigned long)((joker - 1) - write), start, end - start);
+	strcpy(replace + (unsigned long)((joker - 1) - write) + (end - start), joker + 1);
+	return (replace);
+}
+
+char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write)
+{
+	static unsigned int	length = 0;
+	static char			*newline;
+	char				*replace;
+
+	replace = get_replacement(buffer + match->start, match->end - match->start, write);
+	if (Replace_confirmation(buffer, match->start, match->end, replace, line) == 0)
+	{
+		free(replace);
+		return (NULL);
+	}
+	if (length <= strlen(buffer) + (strlen(replace) - (match->end - match->start)))
+	{
+		free(newline);
+		length = (strlen(buffer) + (strlen(replace) - (match->end - match->start)));
+		newline = malloc(length + 1);
+	}
+	if (match->start)
+		strncpy(newline, buffer, match->start);
+	strcpy(newline + match->start, replace);
+	if (buffer[match->end])
+		strcpy(newline + match->start + strlen(replace), buffer + match->end);
+	puts("OKOK");
+	free(replace);
+	return (newline);
+}
+
+void	Print_match_lines(char *buffer, myregex_t *match, int line)
 {
 	int i;
 	const char *line_n = my_itoa(line);
-	static char *color1	= "\e[0;33m";
-	static char *color2	= "\e[0;37m";
-	static char *color3	= "\e[1;33m";
+	char		*start = buffer;
 
 	/*
 	 ** Print line number
 	 */
-	nprint(color1, 7);
-
-	for (i = 0; line_n[i]; i++) my_putc(line_n[i]);
-
-	fmt_print(" :%7s ", color2);
+	printf("\e[0;33m%s :\e[0;37m ", line_n);
 
 	/*
 	 ** Print line with colored occurrences
 	 */
-	for (i = 0; *buffer; i++)
+	for (i = 0; *buffer; i++, buffer++)
 	{
 		if (i == match->start)
 		{
-			nprint(color3, 7);
+			printf("%.*s\e[1;33m", (int)(buffer - start), start);
+			start = buffer;
 		}
 		else if (i == match->end)
 		{
-			nprint(color2, 7);
+			printf("%.*s\e[0;37m", (int)(buffer - start), start);
 			if (match->next)
 				match = match->next;
+			start = buffer;
 		}
-		my_putc(*(buffer++));
 	}
-	my_putc('\n');
+	printf("%.*s\n", (int)(buffer - start), start);
 }
 
 void Help(const char *script)
 {
-	fmt_print
+	printf
 	(
 		"\e[7;31m                                Usage :                                   \e[0m\n\n"
 		"\e[1;31m%s \e[0;33m\"regex\"\e[0m"
@@ -285,27 +489,28 @@ void Help(const char *script)
 		"  \e[0;36m-d / --directory : \e[0;37mDirectory where to look \e[0m(\e[1;34mstring\e[0m)\n"
 		"  \e[0;36m-f / --filter    : \e[0;37mFiles where to look \e[0m(\e[1;34mregex(,regex)*\e[0m)\n"
 		"  \e[0;36m-r / --recursive : \e[0;37mRecursive level \e[0m(\e[1;34minteger\e[0m)\n"
-		"  \e[0;36m-a / --all       : \e[0;37mSearch in all directories and all files \e[0m(\e[1;34mboolean\e[0m)\n\n",
+		"  \e[0;36m-a / --all       : \e[0;37mSearch in all directories and all files \e[0m(\e[1;34mboolean\e[0m)\n"
+		"  \e[0;36m-w / --write     : \e[0;37mReplacement (%% = joker) \e[0m(\e[1;34mstring\e[0m)\n"
+		"  \e[0;36m-s / --start     : \e[0;37mHilighting/replacement start \e[0m(\e[1;34mint\e[0m)\n"
+		"  \e[0;36m-e / --end       : \e[0;37mHilighting/replacement end \e[0m(\e[1;34mint\e[0m)\n\n",
 		script
 	);
 }
 
 void Free_Arguments(arguments *arg)
 {
-	int i;
 	if (!arg) return;
 
-	if (arg->exp) free(arg->exp);
-	if (arg->rec) free(arg->rec);
-	if (arg->all) free(arg->all);
+	//if (arg->exp) free(arg->exp);
+	free(arg->wri);
 	if (arg->fil) {
-		for (i = 0; arg->fil[i]; i++) free(arg->fil[i]);
+		for (int i = 0; arg->fil[i]; i++) free(arg->fil[i]);
 		free(arg->fil);
 	}
 	free(arg);
 }
 
-char Valid_File(const char *filename)
+int Valid_File(const char *filename)
 {
 	char			*ext = NULL;
 	char			**ptr;
@@ -344,7 +549,7 @@ false_label:
 /*
 ** fonction à recoder pour éliminer uniquement les fichiers binaires
 */
-char is_readable(const char *filename)
+int is_readable(const char *filename)
 {
 	FILE *file;
 	char tmp[21];
@@ -375,7 +580,7 @@ char *Get_tolower_extension(const char *filename)
 	if (lastpoint == 0) return NULL;
 
 	lastpoint++;
-	ret = calloc(length_of(filename + lastpoint) + 1, sizeof(char));
+	ret = calloc(strlen(filename + lastpoint) + 1, sizeof(char));
 	for (i = 0, filename += lastpoint; *filename; filename++, i++)
 	{
 		ret[i] = (*filename >= 65 && *filename <= 90) ? (*filename) + 32: *filename;
@@ -385,7 +590,7 @@ char *Get_tolower_extension(const char *filename)
 	return ret;
 }
 
-char Authorized_File(char **filter, char *filename)
+int Authorized_File(char **filter, char *filename)
 {
 	if (filter == NULL) return 1;
 
@@ -418,94 +623,4 @@ void Raw_mode(int on)
 		tcsetattr(STDIN_FILENO, TCSANOW, &cooked); 
 
 	raw_active = on; 
-}
-
-char *Correct_regex(const char *restrict s)
-{
-	int   ps_count = 0; // .* "PointStar"
-	int   ps_pos[20];
-	int   pp_count = 0; // .+ "PointPlus"
-	int   pp_pos[20];
-	char *ret       = NULL;
-	int   i, j;
-	int   bracket = 0;
-	int   parent = 0;
-	int   acco = 0;
-
-	if (*s == '\0') {
-		ret = calloc(3, sizeof(char));
-		ret[0] = '.';
-		ret[1] = '*';
-		return ret;
-	}
-
-	for (i = 0; s[i]; i++)
-	{
-		if (ps_count == 30 || pp_count == 30) exit(EXIT_FAILURE);
-
-		// décompte des crochets ouverts
-		if (s[i] == '[' && (i == 0 || (i == 1 && s[i-1] != '\\') || (i > 1 && (s[i-1] != '\\' || s[i-2] == '\\'))))
-			bracket++;
-		else if (s[i] == ']' && (i == 0 || (s[i-1] != '\\' || (i > 1 && s[i-2] == '\\'))))
-			bracket--;
-		// décompte des parenthèses
-		if (s[i] == '(' && (i == 0 || (i == 1 && s[i-1] != '\\') || (i > 1 && (s[i-1] != '\\' || s[i-2] == '\\'))))
-			parent++;
-		else if (s[i] == ')' && (i == 0 || (s[i-1] != '\\' || (i > 1 && s[i-2] == '\\'))))
-			parent--;
-		// décompte des accolades
-		if (s[i] == '{' && (i == 0 || (i == 1 && s[i-1] != '\\') || (i > 1 && (s[i-1] != '\\' || s[i-2] == '\\'))))
-			acco++;
-		else if (s[i] == '}' && (i == 0 || (s[i-1] != '\\' || (i > 1 && s[i-2] == '\\'))))
-			acco--;
-
-		// Récupération position des ".*" & ".+"
-		else if (s[i] == '.')
-		{
-			if ((i > 0 && (s[i-1] == '\\' || s[i-1] == '[')) || s[i+1] == '\0') continue;
-			if (s[i+1] == '+' )
-				ps_pos[ps_count++] = i++;
-			else if (s[i+1] == '*')
-				ps_pos[ps_count++] = i++;
-		}
-	}
-
-	//fmt_print("\n<<< %d ; %d ; %d >>>\n\n", bracket, parent, acco);
-	if (bracket != 0 || parent != 0 || acco != 0)
-	{
-		fprintf(stderr, "\e[1;31mRegex \"\e[0;36m%s\e[1;31m\" invalide !\n", s);
-		exit(EXIT_FAILURE);
-	}
-
-	ps_pos[ps_count] = -1;
-	pp_pos[pp_count] = -1;
-
-	ret = malloc((i + 1 + (ps_count * 2) + (pp_count * 2)) * sizeof(char));
-
-	if (ps_count == 0 && pp_count == 0) {
-		strcpy(ret, s);
-		ret[i] = '\0';
-		return ret;
-	}
-
-	for (i = j = ps_count = pp_count = 0; *s; i++, j++, s++)
-	{
-		// Remplacement ".+" & ".*"
-		if (i == ps_pos[ps_count] || i == pp_pos[pp_count]) {
-			ret[j++] = '[';
-			ret[j++] = '^';
-			s++;
-			ret[j + 2] = *s;
-			(i++ == ps_pos[ps_count]) ? ps_count++: pp_count++;
-			s++;
-			while (*s == '\\' && s[-1] != '\\') s++, i++;
-			ret[j++] = *s;
-			ret[j++] = ']';
-		}
-		else
-			ret[j] = *s;
-	}
-	ret[j] = '\0';
-
-	return ret;
 }

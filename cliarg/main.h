@@ -28,4 +28,6 @@ extern void *Cliarg_get_copy_value(cliarg_t *args, char name, char *count);
 */
 extern void Cliarg_free_arguments(cliarg_t **args);
 
+extern int	Cliarg_get_int_value(cliarg_t *args, char name);
+
 #endif

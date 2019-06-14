@@ -5,9 +5,12 @@ typedef struct arguments
 {
   char **fil;
   char  *dir;
+  char	*wri;
   char  *exp;
-  int   *all;
-  int   *rec;
+  int   all;
+  int   rec;
+  int	sta;
+  int	end;
 }
 arguments;
 
@@ -31,7 +34,7 @@ void User_confirmation(void);
 ** Check if the arguments number given by the cli is valid
 ** return 1 if it's ok
 */
-char Arguments_number_check(int argc, char *scriptname);
+int Arguments_number_check(int argc, char *scriptname);
 void Raw_mode(int on);
 
 /*
@@ -48,7 +51,6 @@ void Print_match_lines(char *buffer, myregex_t *match, int line);
 /*
 ** convert a number 32 bits to ascii string
 ** return a constant number
-
 */
 const char *Int32_to_ascii(int32_t n);
 
@@ -56,7 +58,7 @@ const char *Int32_to_ascii(int32_t n);
 ** Get and check the arguments from the cli 
 ** and set the pointer of arguments structure
 */
-char Set_Arguments(arguments **main_arg, int argc, char *argv[]);
+int Set_Arguments(arguments **main_arg, int argc, char *argv[]);
 
 //void Set_MainArg(arguments **arg);
 void Free_Arguments(arguments *arg);
@@ -74,27 +76,31 @@ char *Get_tolower_extension(const char *filename);
 /*
 ** ???
 */
-char Valid_File(const char *filename);
+int Valid_File(const char *filename);
 
 /*
 ** Check if the file contain non ascii characters
 */
-char is_readable(const char *filename);
+int is_readable(const char *filename);
 
 /*
 ** Search all the files in the directory
 */
-void Search(int total[], arguments *arg, char *path, short rec);
+void Search(int total[], arguments *arg, char *path, int rec);
 
 /*
 ** Check if the regex match and print the lines
 */
-char Search_On_File(const char *filename, arguments *arg, int total[]);
+int Search_On_File(const char *filename, arguments *arg, int total[], unsigned int fsize);
 
 /*
 ** Check if the file is authorized
 */
-char Authorized_File(char **filter, char *filename);
+int Authorized_File(char **filter, char *filename);
 
+/*
+**
+*/
+char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write);
 
 #endif

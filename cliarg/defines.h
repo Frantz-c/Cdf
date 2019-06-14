@@ -19,6 +19,7 @@
 #define CLIARG_NO_ARGUMENTS '7'
 
 #define INTEGER(var)        ((int*)(var))
+#define INT_VALUE(var)      (*(int*)(var))
 #define INTARRAY(var)       ((int*)(var))
 #define STRING(var)         ((char*)(var))
 #define STRARRAY(var)       ((char**)(var))

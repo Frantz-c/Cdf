@@ -1,11 +1,13 @@
-CFLAGS = -O6 -std=c99 -W -Wall -Wextra
+CFLAGS = -O3 -std=c99 -Wall -Wextra -g
 CC     = gcc
 
+.PHONY: cliarg_lib
 
-all: cdf.o myregex.o my_functions.o cliarg.a
+all: cliarg_lib cdf.o myregex.o my_functions.o cliarg.a
 	$(CC) $^ -o cdf $(CFLAGS)
 
-
+cliarg_lib:
+	make -C cliarg
 
 cdf.o: cdf.c
 	$(CC) -c $< -o $@ $(CFLAGS)
@@ -18,7 +20,9 @@ myregex.o: myregex.c
 
 
 clean:
-	rm *.o
+	rm -f *.o
 
-Xclean: clean
-	rm cdf
+fclean: clean
+	rm -f cdf
+
+re: fclean all

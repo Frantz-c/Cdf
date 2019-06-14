@@ -71,7 +71,7 @@ int preg_match_get_all(char *regex, char *string, myregex_t **pmatch)
 	{
 		while (1)
 		{
-			regmatch_t pregmatch[1] = {0};
+			regmatch_t pregmatch[1] = {{0, 0}};
 
 			match = regexec(&preg, string + offset, nmatch, pregmatch, 0);
 

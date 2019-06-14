@@ -256,10 +256,10 @@ bool zone_match(char c, char start, char end)
 
 int Str_to_int(const char *v)
 {
-  int len = strlen(v);
-  char i = 0;
-  int v_int = 0;
-  int mod = 1;
+  int	len = strlen(v);
+  int	i = 0;
+  int	v_int = 0;
+  int	mod = 1;
 
 
   if (len < 5 || (len == 5 && *v < '6') )

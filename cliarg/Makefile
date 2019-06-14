@@ -1,10 +1,12 @@
-CFLAGS = -O6 -std=c99
+CFLAGS = -O3 -std=c99 -Wextra -Wall -g
 CC     = gcc
+LIB    = ../cliarg.a
 
+all: $(LIB)
 
-../cliarg.a: main.o error.o print.o functions.o
-	ar rcs $@ $^
-
+$(LIB): main.o error.o print.o functions.o
+	ar rc $@ $^ 
+	ranlib $@
 
 main.o: main.c
 	$(CC) -c $< -o $@ $(CFLAGS)
@@ -20,4 +22,10 @@ functions.o: functions.c
 
 
 clean:
-	rm *.o
+	rm -f *.o
+
+fclean: clean
+	rm -f $(LIB)
+
+re: fclean all
+
