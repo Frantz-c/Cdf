@@ -88,7 +88,6 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	argument->fil = STRARRAY(Cliarg_get_copy_value(args, 'f', NULL));
 	argument->exp = argv[1]; //correct_regex() -> \t bug ??
 
-	printf("s = %d, wri = %p\n", argument->sta, (void*)argument->wri);
 	/* 
 	 ** Print regex and filters 
 	 */
@@ -271,7 +270,7 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 		if (arg->wri)
 		{
 			free(copy);
-			copy = malloc(fsize + 1);
+			copy = malloc(fsize * 2 + 1);
 		}
 	}
 	read(fd, buffer, fsize);
@@ -381,37 +380,74 @@ static char	*get_replacement(char *s, int len, char *write)
 	char			*end;
 	char			*joker;
 	/* */
-	char			*tmp;
+	char			*tmp = NULL;
 	unsigned int	new_len = 0;
 	char			*replace;
 
-	printf("\e[1;34mWRITE = \"%s\"\e[0m\n", write);
-	joker = strchr(write, '%');
+	// replace all "%%" per "%", and save the first "%" position in tmp
+	for (joker = write; (joker = strchr(joker, '%')); joker++)
+	{
+		if (joker[1] == '%')
+			memmove(joker, joker + 1, strlen(joker + 1) + 1);
+		else if (!tmp)
+			tmp = joker;
+	}
+	joker = tmp;
+
 	if (joker)
 	{
-		for (tmp = s; *tmp && *tmp != *(joker - 1); tmp++);
-		start = (!tmp) ? s : tmp;
-		for (tmp = s + len - 1; tmp != s && *tmp != *(joker + 1); tmp--);
-		end = (tmp == s) ? s + len - 1 : tmp;
+		if (joker != write) {
+			for (tmp = s; *tmp && *tmp != *(joker - 1); tmp++);
+			start = (!tmp) ? s : tmp;
+		}
+		else
+			start = s;
+
+		if (joker[1]) {
+			for (tmp = s + len - 1; tmp != s && *tmp != *(joker + 1); tmp--);
+			end = (tmp == s) ? s + len - 1 : tmp;
+		}
+		else
+			end = s + strlen(s);
+
 		if (end < start)
 			end = s + len - 1;
 		new_len = end - start;
-		new_len += (joker - 1) - write;
-		new_len += strlen(joker + 1);
+		if (joker != write)
+			new_len += (joker - 1) - write;
+		if (joker[1])
+			new_len += strlen(joker + 1);
 	}
 	else
 	{
 		new_len = strlen(write);
+		replace = malloc(new_len + 1);
+		strncpy(replace, write, new_len);
+		free(write);
+		return (replace);
 	}
 
 	replace = malloc(new_len + 1);
-	if (!joker) {
-		strncpy(replace, write, new_len);
-		return (replace);
+	if (joker != write)
+	{
+		// copy before %
+		strncpy(replace, write, (joker - 1) - write);
+		// copy %
+		strncpy(replace + (unsigned long)((joker - 1) - write), start, end - start);
+		// copy after %
+		if (joker[1])
+			strcpy(replace + (unsigned long)((joker - 1) - write) + (end - start), joker + 1);
+		else
+			replace[(unsigned long)((joker - 1) - write) + (end - start)] = '\0';
 	}
-	strncpy(replace, write, (joker - 1) - write);
-	strncpy(replace + (unsigned long)((joker - 1) - write), start, end - start);
-	strcpy(replace + (unsigned long)((joker - 1) - write) + (end - start), joker + 1);
+	else
+	{
+		// copy %
+		strncpy(replace, start, end - start);
+		if (joker[1])
+			strcpy(replace + (end - start), joker + 1);
+	}
+	free(write);
 	return (replace);
 }
 
@@ -421,7 +457,7 @@ char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, ch
 	static char			*newline;
 	char				*replace;
 
-	replace = get_replacement(buffer + match->start, match->end - match->start, write);
+	replace = get_replacement(buffer + match->start, match->end - match->start, strdup(write));
 	if (Replace_confirmation(buffer, match->start, match->end, replace, line) == 0)
 	{
 		free(replace);
