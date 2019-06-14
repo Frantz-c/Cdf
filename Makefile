@@ -1,21 +1,17 @@
 CFLAGS = -O3 -std=c99 -Wall -Wextra -g
 CC     = gcc
+LIB    = cliarg.a
+FILES  = cdf.o myregex.o my_functions.o 
 
 .PHONY: cliarg_lib
 
-all: cliarg_lib cdf.o myregex.o my_functions.o cliarg.a
-	$(CC) $^ -o cdf $(CFLAGS)
+all: cliarg_lib $(FILES)
+	$(CC) $(FILES) $(LIB) -o cdf $(CFLAGS)
 
 cliarg_lib:
 	make -C cliarg
 
-cdf.o: cdf.c
-	$(CC) -c $< -o $@ $(CFLAGS)
-
-my_functions.o: my_functions.c
-	$(CC) -c $< -o $@ $(CFLAGS)
-
-myregex.o: myregex.c
+%.o: %.c
 	$(CC) -c $< -o $@ $(CFLAGS)
 
 
