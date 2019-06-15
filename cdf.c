@@ -639,7 +639,7 @@ void Help(const char *script)
 		"  \e[0;36m-a / --all       : \e[0;37mSearch in all directories and all files \e[0m(\e[1;34mboolean\e[0m)\n"
 		"  \e[0;36m-w / --write     : \e[0;37mReplacement (%% = joker) \e[0m(\e[1;34mstring\e[0m)\n"
 		"  \e[0;36m-s / --start     : \e[0;37mHighlighting/replacement start \e[0m(\e[1;34mint\e[0m)\n"
-		"  \e[0;36m-e / --end       : \e[0;37mHighlighting/replacement end \e[0m(\e[1;34mint\e[0m)\n",
+		"  \e[0;36m-e / --end       : \e[0;37mHighlighting/replacement end \e[0m(\e[1;34mint\e[0m)\n"
 		"  \e[0;36m-n / --no-confirm: \e[0;37mAsk for confirmation before replacement\e[0m(\e[1;34mboolean\e[0m)\n\n",
 		script
 	);
