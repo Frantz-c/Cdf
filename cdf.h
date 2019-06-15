@@ -11,6 +11,7 @@ typedef struct arguments
   int   rec;
   int	sta;
   int	end;
+  int	noc;
 }
 arguments;
 
@@ -81,7 +82,7 @@ int Valid_File(const char *filename);
 /*
 ** Check if the file contain non ascii characters
 */
-int is_readable(const char *filename);
+int is_readable(const char *filename, int *fd);
 
 /*
 ** Search all the files in the directory
@@ -91,7 +92,7 @@ void Search(int total[], arguments *arg, char *path, int rec);
 /*
 ** Check if the regex match and print the lines
 */
-int Search_On_File(const char *filename, arguments *arg, int total[], unsigned int fsize);
+int Search_On_File(const char *filename, arguments *arg, int total[], unsigned int fsize, int fd);
 
 /*
 ** Check if the file is authorized
@@ -101,6 +102,6 @@ int Authorized_File(char **filter, char *filename);
 /*
 **
 */
-char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write);
+char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write, int noc);
 
 #endif
