@@ -1,6 +1,13 @@
 # Cdf
 Search with regex into files. (Cdf = Chercher Dans les Fichiers)
+You can also replace matches.
 
-Go to "cliarg" directory and run make for create the cliarg.a (in the parent directory).
-Go back to the parent directory and run make.
-run ./cdf for watch the help menu.
+compilation: make
+show usage: ./cdf
+
+example:
+	./cdf 'return ((-?[0-9]+)|(NULL));'
+		-> match all "return x;" pattern
+	./cdf 'return ((-?[0-9]+)|(NULL));' -w='return (%);'
+	./cdf 'return ((-?[0-9]+)|(NULL));' -w='return (%);' --no-confirm
+		-> replace all "return x;" pattern with "return (x);"
