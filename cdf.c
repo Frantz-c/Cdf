@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
 		printf("\e[0m\n\n");
 
 	Free_Arguments(args);
-	return 0;
+	return (0);
 }
 
 int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
@@ -70,7 +70,7 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	cliarg_t	*ptr;
 
 
-	if (Arguments_number_check(argc, *argv) != 0) return -1;
+	if (Arguments_number_check(argc, *argv) != 0) return (-1);
 
 	/*
 	 ** Get arguments from cli
@@ -100,7 +100,6 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	argument->fil = STRARRAY(Cliarg_get_copy_value(args, 'f', NULL));
 	argument->exp = argv[1]; //correct_regex() -> \t bug ??
 
-	printf("noc = %d\n", argument->noc);
 	/* 
 	 ** Print regex and filters 
 	 */
@@ -118,7 +117,7 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 
 	Cliarg_free_arguments(&args);
 	Cliarg_free_error(&error);
-	return 0;
+	return (0);
 }
 
 int Arguments_number_check(int argc, char *scriptname)
@@ -126,16 +125,16 @@ int Arguments_number_check(int argc, char *scriptname)
 	if (argc < 2)
 	{
 		Help(scriptname);
-		return -1;
+		return (-1);
 	}
 	else if (argc > 7)
 	{
 		puts("\e[0;31mTrop d'arguments.\e[0m\n");
 		Help(scriptname);
-		return -1;
+		return (-1);
 	}
 
-	return 0;
+	return (0);
 }
 
 void User_confirmation(void)
@@ -337,7 +336,7 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 				n_replace++;
 				/* copy newline into tmpfile */
 				j = strlen(newline);
-				strncpy(copy + i, newline, j);
+				memcpy(copy + i, newline, j);
 				i += j;
 				copy[i++] = '\n';
 			}
@@ -357,7 +356,7 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 		{
 			copy_line_into_tmpfile:
 			j = strlen(buf);
-			strncpy(copy + i, buf, j);
+			memcpy(copy + i, buf, j);
 			i += j;
 			copy[i++] = '\n';
 		}
@@ -382,7 +381,7 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 		{
 			char	*bkupname = malloc(strlen(filename) + 6);
 			strcpy(bkupname + strlen(filename), ".bkup");
-			strncpy(bkupname, filename, strlen(filename));
+			memcpy(bkupname, filename, strlen(filename));
 			rename(filename, bkupname);
 			free(bkupname);
 		}
@@ -474,8 +473,8 @@ static char	*get_replacement(char *s, char *write)
 	char			*start;
 	char			*end;
 	char			*joker;
-	char			*w_start_match;
-	char			*w_end_match;
+	char			*w_start_match = NULL;
+	char			*w_end_match = NULL;
 	char			*tmp = NULL;
 	unsigned int	new_len = 0;
 	char			*replace;
@@ -510,7 +509,7 @@ static char	*get_replacement(char *s, char *write)
 	{
 		new_len = strlen(write);
 		replace = malloc(new_len + 1);
-		strncpy(replace, write, new_len);
+		memcpy(replace, write, new_len);
 		free(write);
 		return (replace);
 	}
@@ -526,20 +525,20 @@ static char	*get_replacement(char *s, char *write)
 	{
 		// copy before %
 		if (w_start_match && (joker - 1) - w_start_match) {
-			strncpy(replace, write, offset = (w_start_match - write));
-			strncpy(replace + offset, w_start_match, joker - w_start_match);
+			memcpy(replace, write, offset = (w_start_match - write));
+			memcpy(replace + offset, w_start_match, joker - w_start_match);
 			offset += (joker - w_start_match);
 		}
 		else {
-			strncpy(replace, write, offset = ((joker - 1) - write));
+			memcpy(replace, write, offset = ((joker - 1) - write));
 		}
 		// copy %
-		strncpy(replace + offset, start + 1, end - (start + 1));
+		memcpy(replace + offset, start + 1, end - (start + 1));
 		offset += end - (start + 1);
 		// copy after %
 		if (joker[1]) {
 			if (w_end_match && w_end_match - (joker + 1)) {
-				strncpy(replace + offset, joker + 1, w_end_match - (joker + 1));
+				memcpy(replace + offset, joker + 1, w_end_match - (joker + 1));
 				offset += (w_end_match - (joker + 1));
 			}
 			strcpy(replace + offset, end);
@@ -548,12 +547,12 @@ static char	*get_replacement(char *s, char *write)
 	else
 	{
 		// copy %
-		strncpy(replace, start, end - start);
+		memcpy(replace, start, end - start);
 		offset = (end - start);
 		// copy after %
 		if (joker[1]) {
 			if (w_end_match - (joker + 1)) {
-				strncpy(replace + offset, joker + 1, w_end_match - (joker + 1));
+				memcpy(replace + offset, joker + 1, w_end_match - (joker + 1));
 				offset += (w_end_match - (joker + 1));
 			}
 			strcpy(replace + offset, end);
@@ -582,7 +581,7 @@ char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, ch
 		newline = malloc(length + 1);
 	}
 	if (match->start)
-		strncpy(newline, buffer, match->start);
+		memcpy(newline, buffer, match->start);
 	strcpy(newline + match->start, replace);
 	if (buffer[match->end])
 		strcpy(newline + match->start + strlen(replace), buffer + match->end);
@@ -688,11 +687,10 @@ int Valid_File(const char *filename)
 		}
 	}
 	if (!is_readable(filename, &fd))
-		return 0;
+		return (0);
 	return (fd);
 
 not_valid_extension:
-	free(ext);
 	close(fd);
 	return (0);
 }
@@ -767,11 +765,11 @@ int is_readable(const char *filename, int *fd)
 	if ((*fd = open(filename, O_RDONLY)) == -1)
 	{
 		fprintf(stderr, "\e[0;31mImpossible d'ouvrir le fichier \"%s\" ligne %d.\e[0m\n", filename, __LINE__);
-		return 0;
+		return (0);
 	}
 	if ((len = read(*fd, buf, SCAN_LENGTH)) < 1) {
 		close(*fd);
-		return 0;
+		return (0);
 	}
 
 	for (unsigned int i = 0; i < len; i += tmp)
@@ -780,7 +778,7 @@ int is_readable(const char *filename, int *fd)
 			return (0);
 	}
 	lseek(*fd, 0, SEEK_SET);
-	return 1;
+	return (1);
 }
 
 char *Get_tolower_extension(const char *filename)
@@ -791,7 +789,7 @@ char *Get_tolower_extension(const char *filename)
 
 	ext = strchr(filename, '.');
 	if (ext == NULL || strlen(ext) > 4)
-		return NULL;
+		return (NULL);
 
 	for (i = 0, ext++; *ext; ext++, i++) {
 		buf[i] = (*ext >= 'A' && *ext <= 'Z') ? (*ext) + 32: *ext;
@@ -803,14 +801,14 @@ char *Get_tolower_extension(const char *filename)
 
 int Authorized_File(char **filter, char *filename)
 {
-	if (filter == NULL) return 1;
+	if (filter == NULL) return (1);
 
 	while (*filter)
 	{
-		if (preg_match(*filter, filename) == 0) return 1;
+		if (preg_match(*filter, filename) == 0) return (1);
 		filter++;
 	}
-	return 0;
+	return (0);
 }
 
 void Raw_mode(int on) 

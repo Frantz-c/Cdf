@@ -1,5 +1,5 @@
 CFLAGS = -O3 -std=c99 -Wall -Wextra -g
-CC     = gcc
+CC     ?= gcc
 LIB    = cliarg.a
 FILES  = cdf.o myregex.o my_functions.o 
 
