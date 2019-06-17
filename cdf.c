@@ -416,7 +416,7 @@ static char	*get_replacement(char *write, char *joker, int joklen)
 		}
 		else if (tmp[0] == '\\')
 		{
-			if (tmp[1] == 'n' || tmp[1] == 't' || tmp[1] == 's') {
+			if (tmp[1] == 'n' || tmp[1] == 't' || tmp[1] == 's' || tmp[1] == '\\') {
 				tmp++;
 			}
 			new_len++;
@@ -460,6 +460,10 @@ static char	*get_replacement(char *write, char *joker, int joklen)
 				replace[offset++] = ' ';
 				tmp++;
 			}
+			else if (tmp[1] == '\\') {
+				replace[offset++] = '\\';
+				tmp++;
+			}
 		}
 		else
 			replace[offset++] = *tmp;
@@ -491,6 +495,10 @@ char		*copy_with_special_char(const char *s)
 			}
 			else if (tmp[1] == 's') {
 				replace[offset++] = ' ';
+				tmp++;
+			}
+			else if (tmp[1] == '\\') {
+				replace[offset++] = '\\';
 				tmp++;
 			}
 		}
