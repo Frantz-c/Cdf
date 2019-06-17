@@ -29,33 +29,35 @@ int preg_match(char *regex, char *string)
 
 int preg_match_get(char *regex, char *string, myregex_t **pmatch)
 {
-	int err;
-	regex_t preg;
+	int		err;
+	regex_t	preg;
 
+	*pmatch = NULL;
 	err = regcomp(&preg, regex, REG_EXTENDED);
 
 	if (err == 0)
 	{
-		int match;
-		size_t nmatch = 1;
-		regmatch_t *pregmatch;
-		printf("nmatch = %ld\n", nmatch);
+		int			match;
+		regmatch_t	pregmatch;
 
-		pregmatch = malloc(sizeof(regmatch_t *) * nmatch);
-
-		match = regexec(&preg, string, nmatch, pregmatch, 0);
+//		pregmatch = malloc(sizeof(regmatch_t *) * 1U);
+		match = regexec(&preg, string, 1U, &pregmatch, 0);
 		regfree(&preg);
 
 		if (match == 0)
 		{
-			Add_Myregex_t(pmatch, pregmatch[0].rm_so, pregmatch[0].rm_eo);
-			free(pregmatch);
-			return 0;
+			Add_Myregex_t(pmatch, pregmatch.rm_so, pregmatch.rm_eo);
+//			free(pregmatch);
+			return (1);
 		}
-		else if (match == REG_NOMATCH) return -3;
-		else return -1;
+		else if (match == REG_NOMATCH)
+			return (0);
 	}
-	else return -2;
+	else {
+		fprintf(stderr, "regex \"%s\": erreur de compression\n", regex);
+		abort();
+	}
+	return (-1);
 }
 
 int preg_match_get_all(char *regex, char *string, myregex_t **pmatch)

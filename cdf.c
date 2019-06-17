@@ -15,8 +15,6 @@
 #include "my_functions.h"
 
 #define ESCAPE		27
-#define SKIP_CHR1	'{'
-#define SKIP_CHR2	'}'
 #define SCAN_LENGTH	64
 
 #define free_pointer(ptr)	\
@@ -65,6 +63,7 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 		"s.", "start",		/* match start */
 		"e.", "end",		/* match end */
 		"n", "no-confirm",	/* don't require confirmation before replace */
+		"j:", "joker",		/* define joker (%) value */
 		NULL
 	};
 	cliarg_t	*ptr;
@@ -90,8 +89,8 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 	 */
 	if ((argument->dir = STRING(Cliarg_get_copy_value(args, 'd', NULL))) == NULL)
 		CLIARG_SET_STR(argument->dir, ".");
-
 	argument->wri = STRING(Cliarg_get_copy_value(args, 'w', NULL));
+	argument->jok = STRING(Cliarg_get_copy_value(args, 'j', NULL));
 	argument->rec = ((ptr = Cliarg_get_argument(args, 'r'))) ? INT_VALUE(ptr->value) : 1;
 	argument->all = ((ptr = Cliarg_get_argument(args, 'a'))) ? INT_VALUE(ptr->value) : 0;
 	argument->sta = ((ptr = Cliarg_get_argument(args, 's'))) ? INT_VALUE(ptr->value) : 0;
@@ -305,7 +304,8 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 			*lf = '\0';
 
 
-		if (preg_match_get_all(arg->exp, buf, &match) == 0)
+//		if (preg_match_get_all(arg->exp, buf, &match) == 0)
+		if (preg_match_get(arg->exp, buf, &match))
 		{
 			if (title == 0) 
 			{
@@ -327,10 +327,10 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 			*/
 			if (arg->wri)
 			{
-				if ((newline = Print_replacement_and_replace(buf, match, line, arg->wri, arg->noc)) == NULL)
+				if ((newline = Print_replacement_and_replace(buf, match, line, arg)) == NULL)
 				{
 					free_myregex_t(match);
-					match = NULL;
+//					match = NULL;
 					goto copy_line_into_tmpfile;
 				}
 				n_replace++;
@@ -397,179 +397,138 @@ int	Search_On_File(const char *filename, arguments *arg, int total[], unsigned i
 	return (0);
 }
 
-static char	*get_joker_start(char **_joker, char *write, char *org, char **smatch)
+static char	*get_replacement(char *write, char *joker, int joklen)
 {
-	register char	character;
-	register char	*tmp;
-	register char	*joker = *_joker - 1;
-
-
-	for (; joker != write; joker--)
-	{
-		if (joker > write && *joker == SKIP_CHR2 && joker[-1] == SKIP_CHR2)
-		{
-			memmove(joker - 1, joker + 1, strlen(joker));
-			(*_joker) -= 2;
-			while ((joker - 1) != write && (*joker != SKIP_CHR1 || joker[-1] != SKIP_CHR1))
-				joker--;
-
-			if ((joker - 1) == write)
-				break;
-
-			memmove(joker - 1, joker + 1, strlen(joker));
-			(*_joker) -= 2;
-			if ((joker -= 2) <= write)
-				break;
-		}
-
-		character = *joker;
-		for (tmp = org; *tmp; tmp++)
-		{
-			if (*tmp == character) {
-				*smatch = joker;
-				return (tmp);
-			}
-		}
-	}
-	*smatch = NULL;
-	return (org);
-}
-
-static char		*get_joker_end(char *joker, char *org, char *start, char **ematch)
-{
-	register char	character;
-	register int	i = 1;
-	register char	*tmp;
-
-	for (; *joker && start[i]; joker++, i++)
-	{
-		if (*joker == SKIP_CHR1 && joker[1] == SKIP_CHR1)
-		{
-			memmove(joker, joker + 2, strlen(joker + 1));
-			while (*joker && (*joker != SKIP_CHR2 || joker[1] != SKIP_CHR2))
-				joker++;
-			if (!*joker) {
-				*ematch = NULL;
-				return (org + strlen(org));
-			}
-			else
-				memmove(joker, joker + 2, strlen(joker + 1));
-		}
-
-		character = *joker;
-		for (tmp = start + i; *tmp; tmp++)
-		{
-			if (*tmp == character) {
-				*ematch = joker;
-				return (tmp);
-			}
-		}
-	}
-	return (org + strlen(org));
-}
-
-static char	*get_replacement(char *s, char *write)
-{
-	char			*start;
-	char			*end;
-	char			*joker;
-	char			*w_start_match = NULL;
-	char			*w_end_match = NULL;
 	char			*tmp = NULL;
 	unsigned int	new_len = 0;
 	char			*replace;
 
-	// replace all "%%" per "%", and save the first "%" position in tmp
-	for (joker = write; (joker = strchr(joker, '%')); joker++)
+	for (tmp = write; *tmp; tmp++)
 	{
-		if (joker[1] == '%')
-			memmove(joker, joker + 1, strlen(joker + 1) + 1);
-		else if (!tmp)
-			tmp = joker;
-	}
-	joker = tmp;
-
-	/*
-	**	get the joker string (% no replacement: %.*s, end - start, start)
-	**	start	= % string start position
-	**	end		= % string end position
-	*/
-	if (joker)
-	{
-		start = get_joker_start(&joker, write, s, &w_start_match);
-		end = get_joker_end(joker + 1, s, start, &w_end_match);
-
-		new_len = end - start;
-		if (joker != write)
-			new_len += (joker - 1) - write;
-		if (joker[1])
-			new_len += strlen(joker + 1);
-	}
-	else
-	{
-		new_len = strlen(write);
-		replace = malloc(new_len + 1);
-		memcpy(replace, write, new_len);
-		free(write);
-		return (replace);
+		if (tmp[0] == '%')
+		{
+			if (tmp[1] == '%') {
+				new_len++;
+				tmp++;
+			}
+			else
+				new_len += joklen;
+		}
+		else if (tmp[0] == '\\')
+		{
+			if (tmp[1] == 'n' || tmp[1] == 't' || tmp[1] == 's') {
+				tmp++;
+			}
+			new_len++;
+		}
+		else
+			new_len++;
 	}
 
 	/*
 	**	merge write and s if '%' joker used, or copy write
 	**	in replace
 	*/
-	register int	offset;
+	register int	offset = 0;
 
 	replace = malloc(new_len + 1);
-	if (joker != write)
+
+	for (tmp = write; *tmp; tmp++)
 	{
-		// copy before %
-		if (w_start_match && (joker - 1) - w_start_match) {
-			memcpy(replace, write, offset = (w_start_match - write));
-			memcpy(replace + offset, w_start_match, joker - w_start_match);
-			offset += (joker - w_start_match);
-		}
-		else {
-			memcpy(replace, write, offset = ((joker - 1) - write));
-		}
-		// copy %
-		memcpy(replace + offset, start + 1, end - (start + 1));
-		offset += end - (start + 1);
-		// copy after %
-		if (joker[1]) {
-			if (w_end_match && w_end_match - (joker + 1)) {
-				memcpy(replace + offset, joker + 1, w_end_match - (joker + 1));
-				offset += (w_end_match - (joker + 1));
+		if (tmp[0] == '%')
+		{
+			if (tmp[1] == '%') {
+				replace[offset++] = '%';
+				tmp++;
 			}
-			strcpy(replace + offset, end);
-		}
-	}
-	else
-	{
-		// copy %
-		memcpy(replace, start, end - start);
-		offset = (end - start);
-		// copy after %
-		if (joker[1]) {
-			if (w_end_match - (joker + 1)) {
-				memcpy(replace + offset, joker + 1, w_end_match - (joker + 1));
-				offset += (w_end_match - (joker + 1));
+			else {
+				memcpy(replace + offset, joker, joklen);
+				offset += joklen;
 			}
-			strcpy(replace + offset, end);
 		}
+		else if (tmp[0] == '\\')
+		{
+			if (tmp[1] == 'n') {
+				replace[offset++] = '\n';
+				tmp++;
+			}
+			else if (tmp[1] == 't') {
+				replace[offset++] = '\t';
+				tmp++;
+			}
+			else if (tmp[1] == 's') {
+				replace[offset++] = ' ';
+				tmp++;
+			}
+		}
+		else
+			replace[offset++] = *tmp;
 	}
-	free(write);
+	replace[offset] = '\0';
+
 	return (replace);
 }
 
-char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write, int noc)
+char		*copy_with_special_char(const char *s)
 {
+	register int		offset = 0;
+	register const char	*tmp;
+	char				*replace;
+
+	replace = malloc(strlen(s) + 1);
+
+	for (tmp = s; *tmp; tmp++)
+	{
+		if (tmp[0] == '\\')
+		{
+			if (tmp[1] == 'n') {
+				replace[offset++] = '\n';
+				tmp++;
+			}
+			else if (tmp[1] == 't') {
+				replace[offset++] = '\t';
+				tmp++;
+			}
+			else if (tmp[1] == 's') {
+				replace[offset++] = ' ';
+				tmp++;
+			}
+		}
+		else
+			replace[offset++] = *tmp;
+	}
+	replace[offset] = '\0';
+
+	return (replace);
+}
+
+char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, arguments *arg)
+{
+	myregex_t			*jok_match;
 	static unsigned int	length = 0;
 	static char			*newline;
 	char				*replace;
+	char				*found;
 
-	replace = get_replacement(buffer + match->start, strdup(write));
-	if (Replace_confirmation(buffer, match->start, match->end, replace, line, noc) == 0)
+	/*
+	**	if joker's regex isn't NULL, set replace with '%', '\n' and '\t' replacement.
+	*/
+	if (arg->jok) {
+		found = strndup(buffer + match->start, match->end - match->start);
+		preg_match_get(arg->jok, found, &jok_match);
+		replace = get_replacement(arg->wri, found + jok_match->start, jok_match->end - jok_match->start);
+		free(jok_match);
+		free(found);
+	}
+	else {
+		replace = copy_with_special_char(arg->wri);
+	}
+
+	/*
+	**	ask for confirmation before replace if arg->noc == 0, 
+	**	or print replace it not
+	*/
+	if (Replace_confirmation(buffer, match->start, match->end, replace, line, arg->noc) == 0)
 	{
 		free(replace);
 		return (NULL);
@@ -639,6 +598,7 @@ void Help(const char *script)
 		"  \e[0;36m-w / --write     : \e[0;37mReplacement (%% = joker) \e[0m(\e[1;34mstring\e[0m)\n"
 		"  \e[0;36m-s / --start     : \e[0;37mHighlighting/replacement start \e[0m(\e[1;34mint\e[0m)\n"
 		"  \e[0;36m-e / --end       : \e[0;37mHighlighting/replacement end \e[0m(\e[1;34mint\e[0m)\n"
+		"  \e[0;36m-j / --joker     : \e[0;37mDefine the joker's value (%%) \e[0m(\e[1;34mregex\e[0m)\n"
 		"  \e[0;36m-n / --no-confirm: \e[0;37mAsk for confirmation before replacement \e[0m(\e[1;34mboolean\e[0m)\n\n",
 		script
 	);
@@ -650,6 +610,7 @@ void Free_Arguments(arguments *arg)
 
 	//if (arg->exp) free(arg->exp);
 	free(arg->wri);
+	free(arg->jok);
 	if (arg->fil) {
 		for (int i = 0; arg->fil[i]; i++) free(arg->fil[i]);
 		free(arg->fil);

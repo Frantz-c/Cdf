@@ -7,6 +7,7 @@ typedef struct arguments
   char  *dir;
   char	*wri;
   char  *exp;
+  char	*jok;
   int   all;
   int   rec;
   int	sta;
@@ -102,6 +103,6 @@ int Authorized_File(char **filter, char *filename);
 /*
 **
 */
-char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, char *write, int noc);
+char	*Print_replacement_and_replace(char *buffer, myregex_t *match, int line, arguments *arg);
 
 #endif
