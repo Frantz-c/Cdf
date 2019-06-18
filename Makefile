@@ -22,3 +22,7 @@ fclean: clean
 	rm -f cdf
 
 re: fclean all
+
+update:
+	git pull
+	make re
