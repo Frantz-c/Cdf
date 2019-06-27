@@ -62,7 +62,7 @@ int Set_Arguments(arguments **main_arguments, int argc, char *argv[])
 		"w:", "write",		/* replacement */
 		"s.", "start",		/* match start */
 		"e.", "end",		/* match end */
-		"n", "no-confirm",	/* don't require confirmation before replace */
+		"n", "noconfirm",	/* don't require confirmation before replace */
 		"j:", "joker",		/* define joker (%) value */
 		NULL
 	};
@@ -607,7 +607,7 @@ void Help(const char *script)
 		"  \e[0;36m-s / --start     : \e[0;37mHighlighting/replacement start \e[0m(\e[1;34mint\e[0m)\n"
 		"  \e[0;36m-e / --end       : \e[0;37mHighlighting/replacement end \e[0m(\e[1;34mint\e[0m)\n"
 		"  \e[0;36m-j / --joker     : \e[0;37mDefine the joker's value (%%) \e[0m(\e[1;34mregex\e[0m)\n"
-		"  \e[0;36m-n / --no-confirm: \e[0;37mAsk for confirmation before replacement \e[0m(\e[1;34mboolean\e[0m)\n\n",
+		"  \e[0;36m-n / --noconfirm : \e[0;37mAsk for confirmation before replacement \e[0m(\e[1;34mboolean\e[0m)\n\n",
 		script
 	);
 }
